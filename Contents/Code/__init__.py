@@ -31,11 +31,11 @@ def FullEpMenu(title):
 
     oc = ObjectContainer(title2=title)
 
-    for item in HTML.ElementFromURL(FULLEP_URL).xpath('//div[@class="parbase editorialPromo section"]//ul/li'):
+    for item in HTML.ElementFromURL(FULLEP_URL).xpath('//div[contains(@class, "editorialPromo")]//ul/li'):
 
-        title = item.xpath('.//h4/a/text()')[0]
-        try: summary = item.xpath('.//h4/a/span//text()')[0]
-        except: summary = ''
+        title = item.xpath('.//h4/a/text()')[0].strip()
+        try: summary = item.xpath('.//h4/a/span//text()')[0].strip()
+        except: summary = None
         thumb = item.xpath('./div[@class="media"]/a/img/@data-src')[0]
         url = item.xpath('./div[@class="media"]/a/@href')[0]
 
