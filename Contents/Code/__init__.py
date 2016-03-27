@@ -32,9 +32,7 @@ def FullEpMenu(title):
     oc = ObjectContainer(title2=title)
 
     for item in HTML.ElementFromURL(FULLEP_URL).xpath('//div[contains(@class, "m-MediaBlock o-Capsule__m-MediaBlock")]'):
-        Log("test")
         title = item.xpath('.//div[contains(@class, "m-MediaBlock__m-TextWrap")]//h4/a/span/text()')[0].strip()
-        Log("title" + title)
 
         try: summary = title
         except: summary = None
