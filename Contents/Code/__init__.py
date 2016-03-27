@@ -31,13 +31,15 @@ def FullEpMenu(title):
 
     oc = ObjectContainer(title2=title)
 
-    for item in HTML.ElementFromURL(FULLEP_URL).xpath('//div[contains(@class, "editorialPromo")]//ul/li'):
+    for item in HTML.ElementFromURL(FULLEP_URL).xpath('//div[contains(@class, "m-MediaBlock o-Capsule__m-MediaBlock")]'):
+        Log("test")
+        title = item.xpath('.//div[contains(@class, "m-MediaBlock__m-TextWrap")]//h4/a/span/text()')[0].strip()
+        Log("title" + title)
 
-        title = item.xpath('.//h4/a/text()')[0].strip()
-        try: summary = item.xpath('.//h4/a/span//text()')[0].strip()
+        try: summary = title
         except: summary = None
-        thumb = item.xpath('./div[@class="media"]/a/img/@data-src')[0]
-        url = item.xpath('./div[@class="media"]/a/@href')[0]
+        thumb = item.xpath('.//div[contains(@class, "m-MediaBlock__m-MediaWrap")]/a/img/@data-src')[0]
+        url = item.xpath('.//div[contains(@class, "m-MediaBlock__m-MediaWrap")]/a/@href')[0]
 
         oc.add(DirectoryObject(
             key = Callback(VideoBrowse, url=url, title=title),
