@@ -182,7 +182,7 @@ def VideoBrowse(url, title):
 
 ####################################################################################################
 @route(PREFIX + '/createvideoclipobject', duration=int, include_container=bool)
-def CreateVideoClipObject(smil_url, title, summary, duration, thumb, include_container=False):
+def CreateVideoClipObject(smil_url, title, summary, duration, thumb, include_container=False, **kwargs):
 
     videoclip_obj = VideoClipObject(
         key = Callback(CreateVideoClipObject, smil_url=smil_url, title=title, summary=summary, duration=duration, thumb=thumb, include_container=True),
