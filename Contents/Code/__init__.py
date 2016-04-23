@@ -31,18 +31,14 @@ def FullEpMenu(title):
 
     oc = ObjectContainer(title2=title)
 
-    for item in HTML.ElementFromURL(FULLEP_URL).xpath('//div[contains(@class, "m-MediaBlock o-Capsule__m-MediaBlock")]'):
-        title = item.xpath('.//div[contains(@class, "m-MediaBlock__m-TextWrap")]//h4/a/span/text()')[0].strip()
-
-        try: summary = title
-        except: summary = None
-        thumb = item.xpath('.//div[contains(@class, "m-MediaBlock__m-MediaWrap")]/a/img/@data-src')[0]
-        url = item.xpath('.//div[contains(@class, "m-MediaBlock__m-MediaWrap")]/a/@href')[0]
+    for item in HTML.ElementFromURL(FULLEP_URL).xpath('//div[@class="page-body"]//div[contains(@class, "MediaBlock o-Capsule")]'):
+        url = item.xpath('.//a/@href')[0]
+        title = item.xpath('.//h4//span/text()')[0].strip()
+        thumb = item.xpath('.//img/@data-src')[0]
 
         oc.add(DirectoryObject(
             key = Callback(VideoBrowse, url=url, title=title),
             title = title,
-            summary = summary,
             thumb = Resource.ContentsOfURLWithFallback(url=thumb)
         ))
 
@@ -93,45 +89,32 @@ def AllShows(char):
         return oc
 
 ####################################################################################################
-# This function pulls the video and full episode links from a show's main page
+# This function pulls the video link and any pull downs for it from a show's main page
 @route(PREFIX + '/getvideolinks')
 def GetVideoLinks(title, show_url):
 
     oc = ObjectContainer(title2=title)
     data = HTML.ElementFromURL(show_url)
 
-    try:
-        video_url = data.xpath('//div[@class="sub-navigation"]//a[contains(text(), "Videos")]/@href')[0]
+    for section in data.xpath('//li[@data-type="sub-navigation-item"]/div'):
+        try: section_url = section.xpath('./a[contains(text(), "Videos")]/@href')[0]
+        except: continue
+        section_title = section.xpath('./a/text()')[0]
+        oc.add(DirectoryObject(key = Callback(VideoBrowse, url=section_url, title=section_title), title = section_title))
 
-        oc.add(DirectoryObject(
-            key = Callback(VideoBrowse, url=video_url, title='Videos'),
-            title = 'Videos'
-        ))
-
-    except:
-        pass
-
-    # there can be more than one full episode link here if there are multiple seasons so make it a list and loop thru
-    try:
-        fullep_list = data.xpath('//div[@class="sub-navigation"]//a[contains(text(), "Full Episodes")]')
-
-        for item in fullep_list:
-
-            fullep_url = item.xpath('./@href')[0]
-            full_title = item.xpath('.//text()')[0]
+        for item in section.xpath('./ul/li/a'):
+            url = item.xpath('./@href')[0]
+            title = item.xpath('.//text()')[0]
 
             oc.add(DirectoryObject(
-                key = Callback(VideoBrowse, url=fullep_url, title=full_title),
-                title = full_title
+                key = Callback(VideoBrowse, url=url, title=title),
+                title = title
             ))
 
-    except:
-        pass
-
     if len(oc) < 1:
-        return ObjectContainer(header='No Videos', message='This show does not have a video page')
-    else:
-        return oc
+        oc.add(DirectoryObject(key = Callback(VideoBrowse, url=show_url, title=title), title = "Featured Videos"))
+
+    return oc
 
 ####################################################################################################
 # This function produces a list of videos for any page with a video player in it 
@@ -139,11 +122,12 @@ def GetVideoLinks(title, show_url):
 def VideoBrowse(url, title):
 
     oc = ObjectContainer(title2=title)
+    main_title = title
     page = HTML.ElementFromURL(url)
 
     # To prevent any issues with URLs that do not contain the video playlist json, we put the json pull in a try/except
     try:
-        json_data = page.xpath('//div[@class="video-player-container"]/@data-video-prop')[0]
+        json_data = page.xpath('//div[contains(@class, "video-player")]//script/text()')[0].strip()
         json = JSON.ObjectFromString(json_data)
     except:
         json = None
@@ -175,6 +159,12 @@ def VideoBrowse(url, title):
     else:
         Log('%s does not contain a video list json or the json is incomplete' % (url))
 
+    # Next page code
+    try: next_url = page.xpath('//li/a[text()= "Next"]/@href')[0]
+    except: next_url = ''
+    if next_url:
+        oc.add(NextPageObject(key = Callback(VideoBrowse, title=main_title, url=next_url),title = L("Next Page ...")))
+        
     if len(oc) < 1:
         return ObjectContainer(header='Empty', message='There are currently no videos for this show')
     else:
