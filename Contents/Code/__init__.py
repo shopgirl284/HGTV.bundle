@@ -31,7 +31,7 @@ def FullEpMenu(title):
 
     oc = ObjectContainer(title2=title)
 
-    for item in HTML.ElementFromURL(FULLEP_URL).xpath('//div[@class="page-body"]//div[contains(@class, "MediaBlock o-Capsule")]'):
+    for item in HTML.ElementFromURL(FULLEP_URL).xpath('//div[contains(@class,"2up")]//div[contains(@class, "o-Capsule")]'):
         url = item.xpath('.//a/@href')[0]
         title = item.xpath('.//h4//span/text()')[0].strip()
         thumb = item.xpath('.//img/@data-src')[0]
@@ -57,9 +57,10 @@ def Alphabet(title):
 
     oc = ObjectContainer(title2=title)
 
-    for char in HTML.ElementFromURL(SHOW_LINKS_URL).xpath('//section[@class="site-index"]/h2//text()'):
+    for char in HTML.ElementFromURL(SHOW_LINKS_URL).xpath('//section[@class="o-IndexPagination"]//li/a/@title'):
 
-        oc.add(DirectoryObject(key=Callback(AllShows, char=char), title=char))
+        char_title = char.split('by ')[1]
+        oc.add(DirectoryObject(key=Callback(AllShows, char=char_title), title=char_title))
     
     if len(oc) < 1:
         return ObjectContainer(header='Empty', message='There are no shows to list')
@@ -73,7 +74,7 @@ def AllShows(char):
 
     oc = ObjectContainer(title2=char)
 
-    for show in HTML.ElementFromURL(SHOW_LINKS_URL).xpath('//h2[@id="%s"]/following-sibling::ul/li/a' % (char.lower())):
+    for show in HTML.ElementFromURL(SHOW_LINKS_URL).xpath('//*[@id="%s"]/ancestor::section[contains(@class,"o-Capsule")]//ul/li/a' % (char.lower())):
 
         title = show.text
         show_url = show.xpath('./@href')[0]
@@ -127,7 +128,7 @@ def VideoBrowse(url, title):
 
     # To prevent any issues with URLs that do not contain the video playlist json, we put the json pull in a try/except
     try:
-        json_data = page.xpath('//div[contains(@class, "video-player")]//script/text()')[0].strip()
+        json_data = page.xpath('//div[contains(@class, "VideoPlayer") or contains(@class,"video-player")]//script/text()')[0].strip()
         json = JSON.ObjectFromString(json_data)
     except:
         json = None
