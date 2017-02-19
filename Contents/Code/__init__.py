@@ -1,4 +1,6 @@
 NAME = 'HGTV'
+ART = 'art-default.jpg'
+ICON = 'icon-default.jpg'
 PREFIX = '/video/hgtv'
 BASE_URL = 'http://www.hgtv.com'
 
@@ -17,13 +19,13 @@ def Start():
     HTTP.CacheTime = CACHE_1HOUR
 
 ####################################################################################################
-@handler(PREFIX, NAME)
+@handler(PREFIX, NAME, thumb=ICON, art=ART)
 def MainMenu():
 
     oc = ObjectContainer()
 
-    oc.add(DirectoryObject(key = Callback(GetPlaylists,  title='Full Episodes', url=FULLEP_URL), title='Full Episodes'))
-    oc.add(DirectoryObject(key = Callback(PlaylistSection,  title='Videos', url=VID_PAGE, section_code='JukeBox'), title='Videos'))
+    oc.add(DirectoryObject(key = Callback(GetPlaylists, title='Full Episodes', url=FULLEP_URL), title='Full Episodes'))
+    oc.add(DirectoryObject(key = Callback(PlaylistSection, title='Videos', url=VID_PAGE, section_code='JukeBox'), title='Videos'))
     oc.add(DirectoryObject(key = Callback(Alphabet, title='All Shows'), title='All Shows'))
 
     return oc
