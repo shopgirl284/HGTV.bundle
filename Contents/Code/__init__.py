@@ -49,14 +49,16 @@ def GetPlaylists(title, url):
     # The playlist for most pages are contained in "Mediabock--playlist" div tags but a few shows return a playlist results list
     playlist = page.xpath('//section[@class="o-ListVideoPlaylist"]//div[@class="m-MediaBlock"]')
     if len(playlist) < 1:
-        playlist = page.xpath('//div[contains(@class, "MediaBlock--playlist")]')
+        playlist = page.xpath('//div[@role="contentWell"]//div[contains(@class, "MediaBlock--playlist")]')
 
     for item in playlist:
         summary = item.xpath('.//span[contains(@class, "AssetInfo")]/text()')[0].strip()
         if not summary.split()[0].isdigit(): 
             continue
-        url = item.xpath('.//a/@href')[0]
-        title = item.xpath('.//span[contains(@class, "HeadlineText")]/text()')[0].strip().replace('&amp,', '&').replace('&apos;', "'")
+        try: url = item.xpath('.//a/@href')[0]
+        except: continue
+        # To bypass any formatting within the title we just join all the data in the title field
+        title = ' '.join(item.xpath('.//span[contains(@class, "HeadlineText")]//text()')).strip()
         try: thumb = item.xpath('.//img/@data-src')[0]
         except: 
             try: thumb = item.xpath('.//img/@src')[0]
@@ -73,17 +75,6 @@ def GetPlaylists(title, url):
     playlist_check = page.xpath('//section[contains(@class, "SimilarPlaylists")]//div[@class="m-MediaBlock"]')
     if len(playlist_check) > 0:
         oc.add(DirectoryObject(key=Callback(PlaylistSection, title='Similar Playlists', url=url, section_code='SimilarPlaylists'), title='Similar Playlists'))
-
-    # Next page code is needed for shows with playlist results list as well as most HGTV show
-    # HGTV shows return a list of videos in its player, so the next page code creates a player for each page of videos listed
-    try: next_page = page.xpath('//li[contains(@class, "Pagination")]/a[contains(@class, "NextButton") and not (contains(@class, "is-Disabled"))]/@href')[0]
-    except: next_page = None
-    if next_page:
-
-        oc.add(NextPageObject(
-            key = Callback(GetPlaylists, title=title, url=next_page),
-            title = 'Next Page ...'
-        ))
 
     if len(oc) < 1:
         return ObjectContainer(header='Empty', message='There are no full episode shows to list')
@@ -228,7 +219,7 @@ def VideoBrowse(url, title):
                     oc.add(
                         CreateVideoClipObject(
                             smil_url = smil_url,
-                            title = video['title'].replace('&amp,', '&').replace('&apos;', "'"),
+                            title = video['title'],
                             summary = video['description'],
                             duration = int(video['length'])*1000,
                             thumb = BASE_URL + video['thumbnailUrl']
@@ -243,7 +234,7 @@ def VideoBrowse(url, title):
                 oc.add(
                     CreateVideoClipObject(
                         smil_url = smil_url,
-                        title = json['video']['title'].replace('&amp,', '&').replace('&apos;', "'"),
+                        title = json['video']['title'],
                         summary = json['video']['description'],
                         duration = int(json['video']['length'])*1000,
                         thumb = BASE_URL + json['video']['thumbnailUrl']
@@ -253,6 +244,16 @@ def VideoBrowse(url, title):
     else:
         Log('%s does not contain a video list json or the json is incomplete' % (url))
 
+    # Next page code is needed for shows with playlist results list as well as most HGTV show
+    # HGTV shows return a list of videos in its player, so the next page code creates a player for each page of videos listed
+    try: next_page = page.xpath('//li[contains(@class, "Pagination")]/a[contains(@class, "NextButton") and not (contains(@class, "is-Disabled"))]/@href')[0]
+    except: next_page = None
+    if next_page:
+
+        oc.add(NextPageObject(
+            key = Callback(GetPlaylists, title=title, url=next_page),
+            title = 'Next Page ...'
+        ))
         
     if len(oc) < 1:
         return ObjectContainer(header='Empty', message='There are currently no videos for this listing')
