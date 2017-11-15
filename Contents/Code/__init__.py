@@ -25,7 +25,7 @@ def MainMenu():
     oc = ObjectContainer()
 
     oc.add(DirectoryObject(key = Callback(GetPlaylists, title='Full Episodes', url=FULLEP_URL), title='Full Episodes'))
-    oc.add(DirectoryObject(key = Callback(PlaylistSection, title='Videos', url=VID_PAGE, section_code='JukeBox'), title='Videos'))
+    oc.add(DirectoryObject(key = Callback(GetPlaylists, title='Videos', url=VID_PAGE), title='Videos'))
     oc.add(DirectoryObject(key = Callback(Alphabet, title='All Shows'), title='All Shows'))
 
     return oc
