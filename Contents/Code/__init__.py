@@ -6,7 +6,7 @@ BASE_URL = 'http://www.hgtv.com'
 
 FULLEP_URL = 'http://www.hgtv.com/shows/full-episodes'
 SHOW_LINKS_URL = 'http://www.hgtv.com/shows/shows-a-z'
-VID_PAGE = 'http://videos.hgtv.com'
+VID_PAGE = 'http://www.hgtv.com/videos'
 
 SMIL_NS = {'a': 'http://www.w3.org/2005/SMIL21/Language'}
 
