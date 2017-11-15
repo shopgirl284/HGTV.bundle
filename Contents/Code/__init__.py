@@ -6,7 +6,7 @@ BASE_URL = 'http://www.hgtv.com'
 
 FULLEP_URL = 'http://www.hgtv.com/shows/full-episodes'
 SHOW_LINKS_URL = 'http://www.hgtv.com/shows/shows-a-z'
-VID_PAGE = 'http://videos.hgtv.com'
+VID_PAGE = 'http://www.hgtv.com/videos'
 
 SMIL_NS = {'a': 'http://www.w3.org/2005/SMIL21/Language'}
 
@@ -25,15 +25,16 @@ def MainMenu():
     oc = ObjectContainer()
 
     oc.add(DirectoryObject(key = Callback(GetPlaylists, title='Full Episodes', url=FULLEP_URL), title='Full Episodes'))
-    oc.add(DirectoryObject(key = Callback(PlaylistSection, title='Videos', url=VID_PAGE, section_code='JukeBox'), title='Videos'))
+    oc.add(DirectoryObject(key = Callback(GetPlaylists, title='Videos', url=VID_PAGE), title='Videos'))
     oc.add(DirectoryObject(key = Callback(Alphabet, title='All Shows'), title='All Shows'))
 
     return oc
 
 ####################################################################################################
-# This function produces a list of all of the playlist items from a page
+# This function produces a list of playlists for a video page including the video player and a similar playlists section
+# By adding a section code value (other than the default 'ListVideoPlaylist'), you can pull the video playlist from just one section of the page
 @route(PREFIX + '/getplaylists')
-def GetPlaylists(title, url):
+def GetPlaylists(title, url, section_code='ListVideoPlaylist'):
 
     oc = ObjectContainer(title2=title)
     try: page = HTML.ElementFromURL(url)
@@ -41,15 +42,17 @@ def GetPlaylists(title, url):
 
     # Check for embedded video player and add a directory
     player_check = page.xpath('//div[@class="m-VideoPlayer"]')
-    if len(player_check) > 0:
+    # Only include the video player directory for URLs with the default section code
+    if len(player_check) > 0 and section_code=='ListVideoPlaylist':
         try: player_title = page.xpath('//div[@class="o-VideoPlaylistEmbed__m-Header"]//span/text()')[0]
         except: player_title = "Featured Videos"
         oc.add(DirectoryObject(key=Callback(VideoBrowse, title=player_title, url=url), title=player_title))
 
     # The playlist for most pages are contained in "Mediabock--playlist" div tags but a few shows return a playlist results list
-    playlist = page.xpath('//section[@class="o-ListVideoPlaylist"]//div[@class="m-MediaBlock"]')
-    if len(playlist) < 1:
-        playlist = page.xpath('//div[@role="contentWell"]//div[contains(@class, "MediaBlock--playlist")]')
+    playlist = page.xpath('//div[@role="contentWell"]//div[contains(@class, "MediaBlock--playlist")]')
+    # If the playlist is empty or this is a section pull use alternative code
+    if len(playlist) < 1 or section_code!='ListVideoPlaylist':
+        playlist = page.xpath('//section[contains(@class, "%s")]//div[@class="m-MediaBlock" or contains(@class, "o-Capsule__m-MediaBlock")]' %section_code)
 
     for item in playlist:
         summary = item.xpath('.//span[contains(@class, "AssetInfo")]/text()')[0].strip()
@@ -57,24 +60,28 @@ def GetPlaylists(title, url):
             continue
         try: url = item.xpath('.//a/@href')[0]
         except: continue
+        url = URLFix(url)
+        if not url: 
+            continue
         # To bypass any formatting within the title we just join all the data in the title field
         title = ' '.join(item.xpath('.//span[contains(@class, "HeadlineText")]//text()')).strip()
-        try: thumb = item.xpath('.//img/@data-src')[0]
+        try: item_thumb = item.xpath('.//img/@data-src')[0]
         except: 
-            try: thumb = item.xpath('.//img/@src')[0]
-            except: thumb = ''
+            try: item_thumb = item.xpath('.//img/@src')[0]
+            except: item_thumb = thumb
 
         oc.add(DirectoryObject(
             key = Callback(VideoBrowse, url=url, title=title),
             title = title,
             summary = summary,
-            thumb = Resource.ContentsOfURLWithFallback(url=thumb)
+            thumb = Resource.ContentsOfURLWithFallback(url=item_thumb)
         ))
 
     # Check for and create a directory for Similar Playlists
     playlist_check = page.xpath('//section[contains(@class, "SimilarPlaylists")]//div[@class="m-MediaBlock"]')
-    if len(playlist_check) > 0:
-        oc.add(DirectoryObject(key=Callback(PlaylistSection, title='Similar Playlists', url=url, section_code='SimilarPlaylists'), title='Similar Playlists'))
+    # Do not include the playlist check for URL sent to pull SimilarPlaylists
+    if len(playlist_check) > 0 and section_code!='SimilarPlaylists':
+        oc.add(DirectoryObject(key=Callback(GetPlaylists, title='Similar Playlists', url=url, section_code='SimilarPlaylists'), title='Similar Playlists'))
 
     if len(oc) < 1:
         return ObjectContainer(header='Empty', message='There are no full episode shows to list')
@@ -109,6 +116,9 @@ def AllShows(char):
 
         title = show.text
         show_url = show.xpath('./@href')[0]
+        show_url = URLFix(show_url)
+        if not show_url: 
+            continue
 
         oc.add(DirectoryObject(
             key = Callback(GetVideoLinks, show_url=show_url, title=title),
@@ -134,6 +144,9 @@ def GetVideoLinks(title, show_url):
         if 'video' not in section_title.lower():
             continue
         section_url = item.xpath('./a/@href')[0]
+        section_url = URLFix(section_url)
+        if not section_url: 
+            continue
 
         oc.add(DirectoryObject(
             key = Callback(GetPlaylists, url=section_url, title="%s %s" %(title, section_title)),
@@ -143,7 +156,12 @@ def GetVideoLinks(title, show_url):
         # Check for any additional links under the video navigation
         for subitem in item.xpath('./ul[@data-type="dropdown-menu"]/li'):
             sub_url = subitem.xpath('./a/@href')[0]
-            sub_title = subitem.xpath('./a/text()')[0].strip()
+            sub_url = URLFix(sub_url)
+            if not sub_url: 
+                continue
+            # There is an issue with one drop down that does not have a title
+            try: sub_title = subitem.xpath('./a/text()')[0].strip()
+            except: sub_title = 'More ' + section_title
 
             oc.add(DirectoryObject(
                 key = Callback(VideoBrowse, url=sub_url, title="%s %s" %(title, sub_title)),
@@ -154,41 +172,6 @@ def GetVideoLinks(title, show_url):
         return ObjectContainer(header='Empty', message='There are no videos for this show')
     else:
         return oc
-####################################################################################################
-# This function creates a list of playlist from a section of a page
-@route(PREFIX + '/playlistsection')
-def PlaylistSection(url, section_code, title=''):
-
-    oc = ObjectContainer(title2=title)
-    page = HTML.ElementFromURL(url)
-
-    # Add directory for the video player on the HGTV main video page
-    if 'http://videos.hgtv.com' in url:
-        try: player_title = page.xpath('//div[@class="o-VideoPlaylistEmbed__m-Header"]//span/text()')[0]
-        except: player_title = "Featured Videos"
-        oc.add(DirectoryObject(key=Callback(VideoBrowse, title=player_title, url=url), title=player_title))
-
-    playlist = page.xpath('//section[contains(@class, "%s")]//div[@class="m-MediaBlock" or contains(@class, "o-Capsule__m-MediaBlock")]' %section_code)
-    for item in playlist:
-        summary = item.xpath('.//span[contains(@class, "AssetInfo")]/text()')[0].strip()
-        if not summary.split()[0].isdigit(): 
-            continue
-        url = item.xpath('.//a/@href')[0]
-        title = item.xpath('.//span[contains(@class, "HeadlineText")]/text()')[0].strip().replace('&amp,', '&').replace('&apos;', "'")
-        try: thumb = item.xpath('.//img/@data-src')[0]
-        except: thumb = ''
-
-        oc.add(DirectoryObject(
-            key = Callback(VideoBrowse, url=url, title=title),
-            title = title,
-            summary = summary,
-            thumb = Resource.ContentsOfURLWithFallback(url=thumb)
-        ))
-    if len(oc) < 1:
-        return ObjectContainer(header='Empty', message='There are currently no video playlists for this section')
-    else:
-        return oc
-
 ####################################################################################################
 # This function produces a list of videos from a playlist or a single video from a video player URL
 @route(PREFIX + '/videobrowse')
@@ -305,3 +288,26 @@ def PlayVideo(smil_url, resolution):
     video_url = xml.xpath('//a:switch[1]/a:video[@height="%s"]/@src' % closest, namespaces=SMIL_NS)[0]
 
     return IndirectResponse(VideoClipObject, key=video_url)
+
+####################################################################################################
+@route(PREFIX + '/urlfix')
+def URLFix(url):
+
+    #Log('the value of url of %s' %url)
+    if not url.startswith('http'):
+        fixed_url = url
+        if url.startswith('//'):
+            fixed_url = 'http:' + url
+        elif url.startswith('www'):
+            fixed_url = 'http://' + url
+        elif url.startswith('/'):
+            fixed_url = BASE_URL + url
+        else:
+            Log('unable to fix the url of %s' %url)
+            fixed_url = None
+
+    else:
+        fixed_url = url
+    #Log('the value of fixed_url of %s' %fixed_url)
+
+    return fixed_url
