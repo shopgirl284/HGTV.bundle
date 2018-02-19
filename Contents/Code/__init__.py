@@ -37,6 +37,7 @@ def MainMenu():
 def GetPlaylists(title, url, section_code='ListVideoPlaylist'):
 
     oc = ObjectContainer(title2=title)
+    main_title = title
     try: page = HTML.ElementFromURL(url)
     except: return ObjectContainer(header='Bad Url', message='The URL for this page is not valid')
 
@@ -49,7 +50,7 @@ def GetPlaylists(title, url, section_code='ListVideoPlaylist'):
         oc.add(DirectoryObject(key=Callback(VideoBrowse, title=player_title, url=url), title=player_title))
 
     # The playlist for most pages are contained in "Mediabock--playlist" div tags but a few shows return a playlist results list
-    playlist = page.xpath('//div[@role="contentWell"]//div[contains(@class, "MediaBlock--playlist")]')
+    playlist = page.xpath('//div[contains(@class, "MediaBlock--playlist") or contains(@class, "m-MediaBlock--PLAYLIST")]')
     # If the playlist is empty or this is a section pull use alternative code
     if len(playlist) < 1 or section_code!='ListVideoPlaylist':
         playlist = page.xpath('//section[contains(@class, "%s")]//div[@class="m-MediaBlock" or contains(@class, "o-Capsule__m-MediaBlock")]' %section_code)
@@ -76,6 +77,16 @@ def GetPlaylists(title, url, section_code='ListVideoPlaylist'):
             summary = summary,
             thumb = Resource.ContentsOfURLWithFallback(url=item_thumb)
         ))
+
+    # Check for and create a directory for Video Sections
+    section_list = page.xpath('//section[@data-module="video-launcher"]/header/div')
+    # Only include this section for Videos
+    if len(section_list) > 0 and main_title=='Videos':
+        for item in section_list:
+            section_title = item.xpath('.//h3/span/text()')[0]
+            section_url = item.xpath('.//a/@href')[0]
+            section_url = URLFix(section_url)
+            oc.add(DirectoryObject(key=Callback(VideoBrowse, title=section_title, url=section_url), title=section_title))
 
     # Check for and create a directory for Similar Playlists
     playlist_check = page.xpath('//section[contains(@class, "SimilarPlaylists")]//div[@class="m-MediaBlock"]')
